@@ -193,7 +193,7 @@ namespace Mapsui.Geometries.WellKnownBinary
             // Get the Number of rings in this Polygon.
             var numRings = (int) ReadUInt32(reader, byteOrder);
 
-            Debug.Assert(numRings >= 1, "Number of rings in polygon must be 1 or more.");
+            //Debug.Assert(numRings >= 1, "Number of rings in polygon must be 1 or more.");
 
             var shell = new Polygon(CreateWKBLinearRing(reader, byteOrder));
 

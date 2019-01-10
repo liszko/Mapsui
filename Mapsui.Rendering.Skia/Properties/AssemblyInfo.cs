@@ -1,16 +1,15 @@
-﻿using System.Reflection;
-using System.Resources;
+﻿using System.Resources;
+using System.Reflection;
 
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-
-[assembly: AssemblyTitle("Mapsui.Geometries")]
+[assembly: AssemblyTitle("Mapsui.Rendering.Skia-PCL")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("Mapsui.Geometries")]
-[assembly: AssemblyCopyright("Copyright ©  2015")]
+[assembly: AssemblyProduct("Mapsui.Rendering.Skia-PCL")]
+[assembly: AssemblyCopyright("Copyright ©  2017")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 [assembly: NeutralResourcesLanguage("en")]
@@ -23,7 +22,6 @@ using System.Resources;
 //      Revision
 //
  
-
 
 
 [assembly: AssemblyVersion("1.4.8.1")]
