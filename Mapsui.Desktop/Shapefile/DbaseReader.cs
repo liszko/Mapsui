@@ -47,6 +47,7 @@ namespace Mapsui.Providers.Shapefile
         private DbaseField[] _dbaseColumns;
         private FileStream _fs;
         private BinaryReader _br;
+        private StreamReader _dbfStreamReader;
         private bool _headerIsParsed;
 
         public DbaseReader(string filename)
@@ -54,6 +55,13 @@ namespace Mapsui.Providers.Shapefile
             if (!File.Exists(filename))
                 throw new FileNotFoundException(String.Format("Could not find file \"{0}\"", filename));
             _filename = filename;
+            _headerIsParsed = false;
+        }
+
+        public DbaseReader(StreamReader dbfStreamReader)
+        {
+            _dbfStreamReader = dbfStreamReader;
+            
             _headerIsParsed = false;
         }
 
@@ -67,16 +75,24 @@ namespace Mapsui.Providers.Shapefile
 
         public void Open()
         {
-            _fs = new FileStream(_filename, FileMode.Open, FileAccess.Read);
-            _br = new BinaryReader(_fs);
+            if (_dbfStreamReader != null)
+            {
+                _br = new BinaryReader(_dbfStreamReader.BaseStream, Encoding.UTF7, true);
+            }
+            else
+            {
+                _fs = new FileStream(_filename, FileMode.Open, FileAccess.Read);
+                _br = new BinaryReader(_fs);
+            }
+
             _isOpen = true;
             if (!_headerIsParsed) ParseDbfHeader(); // Don't read the header if it's already parsed
         }
 
         public void Close()
         {
-            _br.Close();
-            _fs.Close();
+            _br?.Close();
+            _fs?.Close();
             _isOpen = false;
         }
 
@@ -84,6 +100,7 @@ namespace Mapsui.Providers.Shapefile
         {
             if (_isOpen)
                 Close();
+            _dbfStreamReader?.Dispose();
             _br = null;
             _fs = null;
         }
@@ -160,9 +177,9 @@ namespace Mapsui.Providers.Shapefile
             _numberOfRecords = _br.ReadInt32(); // read number of records.
             _headerLength = _br.ReadInt16(); // read length of header structure.
             _recordLength = _br.ReadInt16(); // read length of a record
-            _fs.Seek(29, SeekOrigin.Begin); //Seek to encoding flag
+            _br.BaseStream.Seek(29, SeekOrigin.Begin); //Seek to encoding flag
             _fileEncoding = GetDbaseLanguageDriver(_br.ReadByte()); //Read and parse Language driver
-            _fs.Seek(32, SeekOrigin.Begin); //Move past the reserved bytes
+            _br.BaseStream.Seek(32, SeekOrigin.Begin); //Move past the reserved bytes
 
             int numberOfColumns = (_headerLength - 31)/32; // calculate the number of DataColumns in the header
             _dbaseColumns = new DbaseField[numberOfColumns];
@@ -211,7 +228,7 @@ namespace Mapsui.Providers.Shapefile
                         _dbaseColumns[i].DataType = typeof (Int32);
                     else
                         _dbaseColumns[i].DataType = typeof (Int64);
-                _fs.Seek(_fs.Position + 14, 0);
+                _br.BaseStream.Seek(_br.BaseStream.Position + 14, 0);
             }
             _headerIsParsed = true;
         }
@@ -420,7 +437,7 @@ namespace Mapsui.Providers.Shapefile
             if (colid >= _dbaseColumns.Length || colid < 0)
                 throw ((new ArgumentException("Column index out of range")));
 
-            _fs.Seek(_headerLength + oid*_recordLength, 0);
+            _br.BaseStream.Seek(_headerLength + oid*_recordLength, 0);
             for (int i = 0; i < colid; i++)
                 _br.BaseStream.Seek(_dbaseColumns[i].Length, SeekOrigin.Current);
 
@@ -452,7 +469,7 @@ namespace Mapsui.Providers.Shapefile
         {
             if (oid >= _numberOfRecords)
                 throw (new ArgumentException("Invalid DataRow requested at index " + oid.ToString(CultureInfo.InvariantCulture)));
-            _fs.Seek(_headerLength + oid * _recordLength, 0);
+            _br.BaseStream.Seek(_headerLength + oid * _recordLength, 0);
 
             var dr = table.New();
 

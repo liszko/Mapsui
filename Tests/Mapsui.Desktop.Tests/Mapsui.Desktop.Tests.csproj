@@ -51,6 +51,7 @@
   <ItemGroup>
     <Compile Include="GeoTiff\GeoTiffProviderTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ShapeFileTests.cs" />
     <Compile Include="Utilities\AssemblyInfo.cs" />
     <Compile Include="Wfs\WfsProviderTests.cs" />
     <Compile Include="Wms\ClientTests.cs" />
@@ -69,6 +70,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <EmbeddedResource Include="Resources\50mc_cities.dbf" />
+    <EmbeddedResource Include="Resources\50mc_cities.shp" />
+    <EmbeddedResource Include="Resources\50mc_cities.shx" />
     <None Include="Resources\example.tfw">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

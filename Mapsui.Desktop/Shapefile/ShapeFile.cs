@@ -169,6 +169,10 @@ namespace Mapsui.Providers.Shapefile
         private FileStream _fsShapeIndex;
         private readonly object _syncRoot = new object();
 
+        private StreamReader _shpSR;
+        private StreamReader _idxSR;
+        private StreamReader _dbfSR;
+
         /// <summary>
         /// Tree used for fast query of data
         /// </summary>
@@ -201,6 +205,18 @@ namespace Mapsui.Providers.Shapefile
             //Read projection file
             ParseProjection();
         }
+
+        public ShapeFile(StreamReader shpSR, StreamReader idxSR, StreamReader dbfSR)
+        {
+            _shpSR = shpSR;
+            _idxSR = idxSR;
+            _dbfSR = dbfSR;
+
+            _dbaseFile = new DbaseReader(_dbfSR);
+            //Parse shape header
+            ParseHeader();
+        }
+
 
         /// <summary>
         /// Gets the <see cref="Shapefile.ShapeType">shape geometry type</see> in this shapefile.
@@ -290,6 +306,9 @@ namespace Mapsui.Providers.Shapefile
         /// </summary>
         public void Dispose()
         {
+            _shpSR?.Dispose();
+            _idxSR?.Dispose();
+            _dbfSR?.Dispose();
             Dispose(true);
             GC.SuppressFinalize(this);
         }
@@ -326,14 +345,21 @@ namespace Mapsui.Providers.Shapefile
             // TODO:
             // Get a Connector.  The connector returned is guaranteed to be connected and ready to go.
             // Pooling.Connector connector = Pooling.ConnectorPool.ConnectorPoolManager.RequestConnector(this,true);
-
             if (!_isOpen)
             {
-                _fsShapeIndex = new FileStream(_filename.Remove(_filename.Length - 4, 4) + ".shx", FileMode.Open, FileAccess.Read);
-                _brShapeIndex = new BinaryReader(_fsShapeIndex, Encoding.Unicode);
-                _fsShapeFile = new FileStream(_filename, FileMode.Open, FileAccess.Read);
-                _brShapeFile = new BinaryReader(_fsShapeFile);
-                InitializeShape(_filename, _fileBasedIndex);
+                if (_shpSR != null)
+                {
+                    _brShapeIndex = new BinaryReader(_idxSR.BaseStream, Encoding.Unicode, true);
+                    _brShapeFile = new BinaryReader(_shpSR.BaseStream, Encoding.Unicode, true);
+                }
+                else
+                {
+                    _fsShapeIndex = new FileStream(_filename.Remove(_filename.Length - 4, 4) + ".shx", FileMode.Open, FileAccess.Read);
+                    _brShapeIndex = new BinaryReader(_fsShapeIndex, Encoding.Unicode);
+                    _fsShapeFile = new FileStream(_filename, FileMode.Open, FileAccess.Read);
+                    _brShapeFile = new BinaryReader(_fsShapeFile);
+                }                
+                InitializeShape(_filename, _fileBasedIndex && _shpSR == null);
                 if (_dbaseFile != null)
                     _dbaseFile.Open();
                 _isOpen = true;
@@ -349,10 +375,10 @@ namespace Mapsui.Providers.Shapefile
             {
                 if (_isOpen)
                 {
-                    _brShapeFile.Close();
-                    _fsShapeFile.Close();
-                    _brShapeIndex.Close();
-                    _fsShapeIndex.Close();
+                    _brShapeFile?.Close();
+                    _fsShapeFile?.Close();
+                    _brShapeIndex?.Close();
+                    _fsShapeIndex?.Close();
                     _dbaseFile?.Close();
                     _isOpen = false;
                 }
@@ -463,9 +489,9 @@ namespace Mapsui.Providers.Shapefile
         
         private void InitializeShape(string filename, bool fileBasedIndex)
         {
-            if (!File.Exists(filename))
+            if (!File.Exists(filename) && _shpSR == null )
                 throw new FileNotFoundException(String.Format("Could not find file \"{0}\"", filename));
-            if (!filename.ToLower().EndsWith(".shp"))
+            if (filename != null && !filename.ToLower().EndsWith(".shp") && _shpSR == null)
                 throw (new Exception("Invalid shapefile filename: " + filename));
 
             LoadSpatialIndex(fileBasedIndex); //Load spatial index			
@@ -476,9 +502,15 @@ namespace Mapsui.Providers.Shapefile
         /// </summary>
         private void ParseHeader()
         {
-            _fsShapeIndex = new FileStream(Path.ChangeExtension(_filename, ".shx"), FileMode.Open,
-                                          FileAccess.Read);
-            _brShapeIndex = new BinaryReader(_fsShapeIndex, Encoding.Unicode);
+            if (_idxSR != null)
+            {
+                _brShapeIndex = new BinaryReader(_idxSR.BaseStream, Encoding.Unicode, true);
+            }
+            else
+            {
+                _fsShapeIndex = new FileStream(Path.ChangeExtension(_filename, ".shx"), FileMode.Open, FileAccess.Read);
+                _brShapeIndex = new BinaryReader(_fsShapeIndex, Encoding.Unicode);
+            }
 
             _brShapeIndex.BaseStream.Seek(0, 0);
             //Check file header
@@ -501,7 +533,7 @@ namespace Mapsui.Providers.Shapefile
                                         _brShapeIndex.ReadDouble());
 
             _brShapeIndex.Close();
-            _fsShapeIndex.Close();
+            _fsShapeIndex?.Close();
         }
 
         /// <summary>
@@ -686,7 +718,8 @@ namespace Mapsui.Providers.Shapefile
             {
                 for (int a = 0; a < _featureCount; ++a)
                 {
-                    _fsShapeFile.Seek(offsetOfRecord[a] + 8, 0); //skip record number and content length
+                    //_fsShapeFile.Seek(offsetOfRecord[a] + 8, 0); //skip record number and content length
+                    _brShapeFile.BaseStream.Seek(offsetOfRecord[a] + 8, 0);
                     if ((ShapeType)_brShapeFile.ReadInt32() != ShapeType.Null)
                     {
                         double x = _brShapeFile.ReadDouble();
@@ -700,12 +733,10 @@ namespace Mapsui.Providers.Shapefile
             {
                 for (int a = 0; a < _featureCount; ++a)
                 {
-                    _fsShapeFile.Seek(offsetOfRecord[a] + 8, 0); //skip record number and content length
+                    _brShapeFile.BaseStream.Seek(offsetOfRecord[a] + 8, 0); //skip record number and content length
                     if ((ShapeType)_brShapeFile.ReadInt32() != ShapeType.Null)
                         yield return new BoundingBox(_brShapeFile.ReadDouble(), _brShapeFile.ReadDouble(),
                                                      _brShapeFile.ReadDouble(), _brShapeFile.ReadDouble());
-                    //boxes.Add(new BoundingBox(brShapeFile.ReadDouble(), brShapeFile.ReadDouble(),
-                    //                          brShapeFile.ReadDouble(), brShapeFile.ReadDouble()));
                 }
             }
             //return boxes;
