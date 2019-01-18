@@ -6,6 +6,7 @@
 - Removed all platforms except for WPF
 - Changed code to allow newer versions of 3rd party dependencies
 - Fixed deprecated code 
+- Enabled construction and useage of ShapeFile from StreamReaders
 
 ## Supported Platforms
 
